@@ -1,0 +1,160 @@
+--[[
+    Nombre: JoseAngel_Blox Bonds
+    Juego: Dead Rails
+    ID del Juego: 116495829188952
+    Función: Auto Farm de Bonos
+    Compatibilidad: Delta Executor
+]]
+
+-- Servicios necesarios
+local Players = game:GetService("Players")
+local Workspace = game:GetService("Workspace")
+local ReplicatedStorage = game:GetService("ReplicatedStorage")
+local RunService = game:GetService("RunService")
+local TweenService = game:GetService("TweenService")
+
+-- Jugador local
+local LocalPlayer = Players.LocalPlayer
+local Character = LocalPlayer.Character or LocalPlayer.CharacterAdded:Wait()
+local Humanoid = Character:WaitForChild("Humanoid")
+local RootPart = Character:WaitForChild("HumanoidRootPart")
+
+-- Creación de interfaz gráfica
+local ScreenGui = Instance.new("ScreenGui")
+ScreenGui.Name = "JoseAngel_BloxBonds_UI"
+ScreenGui.ResetOnSpawn = false
+ScreenGui.ZIndexBehavior = Enum.ZIndexBehavior.Sibling
+ScreenGui.Parent = game:GetService("CoreGui")
+
+-- Fondo principal
+local MainFrame = Instance.new("Frame")
+MainFrame.Size = UDim2.new(0, 300, 0, 160)
+MainFrame.Position = UDim2.new(0.03, 0, 0.03, 0)
+MainFrame.BackgroundColor3 = Color3.fromRGB(15, 20, 28)
+MainFrame.BorderSizePixel = 0
+MainFrame.Active = true
+MainFrame.Draggable = true
+MainFrame.Parent = ScreenGui
+
+-- Esquinas redondeadas
+local UICorner = Instance.new("UICorner")
+UICorner.CornerRadius = UDim.new(0, 14)
+UICorner.Parent = MainFrame
+
+-- Borde decorativo
+local UIStroke = Instance.new("UIStroke")
+UIStroke.Color = Color3.fromRGB(120, 160, 255)
+UIStroke.Thickness = 2
+UIStroke.Parent = MainFrame
+
+-- Título
+local Title = Instance.new("TextLabel")
+Title.Size = UDim2.new(1, 0, 0, 45)
+Title.BackgroundTransparency = 1
+Title.Font = Enum.Font.GothamBold
+Title.Text = "JoseAngel_Blox Bonds"
+Title.TextColor3 = Color3.fromRGB(230, 240, 255)
+Title.TextSize = 19
+Title.Parent = MainFrame
+
+-- Estado
+local Status = Instance.new("TextLabel")
+Status.Size = UDim2.new(1, -20, 0, 30)
+Status.Position = UDim2.new(0, 10, 0, 55)
+Status.BackgroundTransparency = 1
+Status.Font = Enum.Font.GothamSemibold
+Status.Text = "Estado: Desactivado"
+Status.TextColor3 = Color3.fromRGB(180, 190, 210)
+Status.TextSize = 15
+Status.TextXAlignment = Enum.TextXAlignment.Left
+Status.Parent = MainFrame
+
+-- Botón de activación
+local ToggleBtn = Instance.new("TextButton")
+ToggleBtn.Size = UDim2.new(0.85, 0, 0, 42)
+ToggleBtn.Position = UDim2.new(0.075, 0, 0, 100)
+ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 55, 90)
+ToggleBtn.Font = Enum.Font.GothamBold
+ToggleBtn.Text = "ACTIVAR AUTO FARM"
+ToggleBtn.TextColor3 = Color3.new(1, 1, 1)
+ToggleBtn.TextSize = 16
+ToggleBtn.Parent = MainFrame
+
+local BtnCorner = Instance.new("UICorner")
+BtnCorner.CornerRadius = UDim.new(0, 10)
+BtnCorner.Parent = ToggleBtn
+
+-- Variables de control
+local AutoFarm = false
+local distanciaBusqueda = 250 -- Alcance para buscar bonos
+
+-- Función adaptada a Dead Rails
+local function FarmearBonos()
+    while AutoFarm and task.wait(1.2) do
+        if not Character or not Humanoid or Humanoid.Health <= 0 then continue end
+
+        -- Buscar objetos que otorgan bonos en el mapa
+        local bonosEncontrados = {}
+        for _, objeto in ipairs(Workspace:GetDescendants()) do
+            -- En Dead Rails los bonos suelen tener nombres como "Bond", "Bono", "Money", "Collectible"
+            if objeto:IsA("BasePart") and 
+               (objeto.Name:lower():find("bond") or objeto.Name:lower():find("moneda") or objeto.Name:lower():find("recompensa")) and
+               (objeto.Position - RootPart.Position).Magnitude < distanciaBusqueda then
+
+                table.insert(bonosEncontrados, objeto)
+            end
+        end
+
+        -- Ordenar por distancia para ir al más cercano primero
+        table.sort(bonosEncontrados, function(a, b)
+            return (a.Position - RootPart.Position).Magnitude < (b.Position - RootPart.Position).Magnitude
+        end)
+
+        -- Recolectar cada uno
+        for _, bono in ipairs(bonosEncontrados) do
+            if not AutoFarm then break end
+
+            -- Moverse hasta el objeto
+            Humanoid:MoveTo(bono.Position)
+            Humanoid.MoveToFinished:Wait(3)
+
+            -- Interacción según cómo funciona en Dead Rails
+            if bono:FindFirstChild("TouchInterest") then
+                -- Si se recoge al tocar, basta con acercarse
+                task.wait(0.5)
+            else
+                -- Si requiere evento remoto
+                local eventoRecolectar = ReplicatedStorage:FindFirstChild("Collect") or ReplicatedStorage:FindFirstChild("Pickup")
+                if eventoRecolectar and eventoRecolectar:IsA("RemoteEvent") then
+                    eventoRecolectar:FireServer(bono)
+                end
+            end
+        end
+    end
+end
+
+-- Lógica del botón
+ToggleBtn.MouseButton1Click:Connect(function()
+    AutoFarm = not AutoFarm
+    if AutoFarm then
+        Status.Text = "Estado: ACTIVO ✅"
+        Status.TextColor3 = Color3.fromRGB(100, 220, 130)
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(35, 90, 60)
+        ToggleBtn.Text = "DESACTIVAR AUTO FARM"
+        task.spawn(FarmearBonos)
+    else
+        Status.Text = "Estado: Desactivado ❌"
+        Status.TextColor3 = Color3.fromRGB(180, 190, 210)
+        ToggleBtn.BackgroundColor3 = Color3.fromRGB(40, 55, 90)
+        ToggleBtn.Text = "ACTIVAR AUTO FARM"
+    end
+end)
+
+-- Actualizar personaje si reaparece
+LocalPlayer.CharacterAdded:Connect(function(nuevoChar)
+    Character = nuevoChar
+    Humanoid = nuevoChar:WaitForChild("Humanoid")
+    RootPart = nuevoChar:WaitForChild("HumanoidRootPart")
+end)
+
+print("[✅] JoseAngel_Blox Bonds cargado en Dead Rails")
